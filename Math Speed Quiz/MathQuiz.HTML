@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Math Speed Quiz</title>
+
+<style>
+body {
+  margin: 0;
+  font-family: Arial;
+  text-align: center;
+  background: #18202b;
+  color: white;
+  transition: background 0.2s;
+}
+
+h1 { color: #ffd54f; }
+
+#game {
+  max-width: 450px;
+  margin: 30px auto;
+  padding: 25px;
+  background: #26374b;
+  border-radius: 20px;
+}
+
+#question { font-size: 55px; margin: 25px; }
+#timer { font-size: 40px; color: #ffd54f; }
+#score { font-size: 22px; margin: 20px; }
+
+.options {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+}
+
+button {
+  padding: 18px 5px;
+  font-size: 24px;
+  border: none;
+  border-radius: 12px;
+  cursor: pointer;
+  background: #3498db;
+  color: white;
+  font-weight: bold;
+}
+
+#message {
+  font-size: 28px;
+  margin: 20px;
+  font-weight: bold;
+}
+
+#start {
+  background: #27ae60;
+  margin-top: 20px;
+}
+
+.spark {
+  position: fixed;
+  font-size: 30px;
+  pointer-events: none;
+  animation: burst 1s ease-out forwards;
+}
+
+@keyframes burst {
+  from { transform: scale(0); opacity: 1; }
+  to { transform: translateY(-130px) scale(2); opacity: 0; }
+}
+</style>
+</head>
+
+<body>
+
+<h1>🎆 MATH SPEED QUIZ 🎆</h1>
+
+<div id="game">
+  <div id="timer">3</div>
+  <div id="question">Ready?</div>
+  <div class="options" id="options"></div>
+  <div id="message">Press START!</div>
+  <div id="score">Score: 0</div>
+  <button id="start" onclick="startGame()">START GAME</button>
+</div>
+
+<script>
+
+let score = 0;
+let time = 3;
+let correctAnswer;
+let timer;
+let playing = false;
+
+const audio = new (window.AudioContext || window.webkitAudioContext)();
+
+function tone(freq, duration, type="sine", volume=0.15, delay=0) {
+  let osc = audio.createOscillator();
+  let gain = audio.createGain();
+
+  osc.type = type;
+  osc.frequency.setValueAtTime(freq, audio.currentTime + delay);
+  gain.gain.setValueAtTime(volume, audio.currentTime + delay);
+  gain.gain.exponentialRampToValueAtTime(
+    0.001, audio.currentTime + delay + duration
+  );
+
+  osc.connect(gain);
+  gain.connect(audio.destination);
+
+  osc.start(audio.currentTime + delay);
+  osc.stop(audio.currentTime + delay + duration);
+}
+
+function winSound() {
+  tone(900, 0.12, "sine", 0.15, 0);
+  tone(1200, 0.15, "triangle", 0.15, 0.12);
+  tone(1600, 0.3, "sine", 0.15, 0.25);
+  tone(2100, 0.4, "triangle", 0.12, 0.4);
+}
+
+function loseSound() {
+  tone(220, 0.3, "sawtooth", 0.15, 0);
+  tone(150, 0.4, "sawtooth", 0.12, 0.2);
+}
+
+function fireworks() {
+  const symbols = ["✨", "🎆", "⭐", "💥"];
+
+  for (let i = 0; i < 18; i++) {
+    let spark = document.createElement("div");
+    spark.className = "spark";
+    spark.innerText = symbols[Math.floor(Math.random()*symbols.length)];
+    spark.style.left = Math.random()*100 + "vw";
+    spark.style.top = Math.random()*70 + "vh";
+    document.body.appendChild(spark);
+
+    setTimeout(() => spark.remove(), 1000);
+  }
+}
+
+function startGame() {
+  audio.resume();
+  score = 0;
+  playing = true;
+  document.getElementById("start").style.display = "none";
+  document.getElementById("score").innerText = "Score: 0";
+  nextQuestion();
+}
+
+function nextQuestion() {
+  if (!playing) return;
+
+  clearInterval(timer);
+  document.body.style.background = "#18202b";
+  document.getElementById("message").innerText = "";
+
+  let a = Math.floor(Math.random()*15)+1;
+  let b = Math.floor(Math.random()*10)+1;
+  let op = ["+", "-", "×"][Math.floor(Math.random()*3)];
+
+  if (op === "+") correctAnswer = a+b;
+  if (op === "-") {
+    if(a<b) [a,b]=[b,a];
+    correctAnswer = a-b;
+  }
+  if (op === "×") correctAnswer = a*b;
+
+  document.getElementById("question").innerText =
+    a+" "+op+" "+b+" = ?";
+
+  let answers = [correctAnswer];
+
+  while(answers.length<3) {
+    let wrong = correctAnswer+Math.floor(Math.random()*11)-5;
+    if(wrong>=0 && !answers.includes(wrong)) answers.push(wrong);
+  }
+
+  answers.sort(()=>Math.random()-0.5);
+
+  document.getElementById("options").innerHTML =
+    answers.map(x =>
+      `<button onclick="checkAnswer(${x})">${x}</button>`
+    ).join("");
+
+  time = 3;
+  document.getElementById("timer").innerText = time;
+
+  timer = setInterval(()=>{
+    time--;
+    document.getElementById("timer").innerText = time;
+
+    if(time<=0) {
+      clearInterval(timer);
+      wrongAnswer("⏰ TIME UP!");
+    }
+  },1000);
+}
+
+function checkAnswer(answer) {
+  if(!playing) return;
+
+  clearInterval(timer);
+
+  if(answer === correctAnswer) {
+    score++;
+    winSound();
+    fireworks();
+
+    document.body.style.background = "#168447";
+    document.getElementById("message").innerText = "🎉 CORRECT! 🎉";
+    document.getElementById("score").innerText = "Score: "+score;
+    document.getElementById("options").innerHTML = "";
+
+    setTimeout(nextQuestion,1000);
+  } else {
+    wrongAnswer("✗ WRONG!");
+  }
+}
+
+function wrongAnswer(message) {
+  loseSound();
+  document.body.style.background = "#b83232";
+  document.getElementById("message").innerText = message;
+  document.getElementById("options").innerHTML = "";
+
+  playing = false;
+  document.getElementById("start").style.display = "inline-block";
+  document.getElementById("start").innerText = "PLAY AGAIN";
+}
+
+</script>
+</body>
+</html>
